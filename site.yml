@@ -1,0 +1,98 @@
+---
+- hosts: all
+  remote_user: root
+
+  vars_prompt:
+    - name: "hostname"
+      prompt: "Hostname for this VM:"
+    - name: "password"
+      prompt: "Root password for this VM:"
+      private: yes
+      encrypt: "sha512_crypt"
+      confirm: yes
+
+  tasks:
+    - name: create Ansible script done marker folder
+      file:
+        path: "/root/.ansible-done/"
+        state: directory
+
+    - name: enable service ssh
+      systemd:
+        name: ssh
+        enabled: yes
+        state: started
+
+    - name: change password
+      user:
+        name: root
+        password: "{{ password }}"
+
+    - name: generate ssh key
+      user:
+        name: root
+        generate_ssh_key: yes
+
+    - name: update
+      apt:
+        update_cache: yes
+        upgrade: dist
+
+    - name: install open VM tools
+      apt:
+        name: open-vm-tools-desktop
+
+    - name: install fuse
+      apt:
+        name: fuse
+
+    - name: setup Metasploit database
+      systemd:
+        name: postgresql
+        state: started
+        enabled: yes
+
+    - name: setup Metasploit
+      command: msfdb init
+      args:
+        creates: "/root/.ansible-done/setup-metasploit"
+
+    - name: change hostname
+      hostname:
+        name: "{{ hostname }}"
+
+    - name: install Firefox Developer Edition
+      unarchive:
+        src: https://download.mozilla.org/?product=firefox-devedition-latest-ssl&os=linux64&lang=en-US
+        dest: /opt
+        remote_src: yes
+
+    - name: add Firefox Developer Edition to Applications
+      copy:
+        src: firefox-developer-edition.desktop
+        dest: /usr/share/applications/firefox-developer-edition.desktop
+
+    - name: symlink Firefox
+      file:
+        src: /opt/firefox/firefox
+        dest: /usr/local/bin/firefox
+        owner: root
+        group: staff
+        state: link
+
+    - name: install Emacs
+      apt:
+        name: emacs
+
+    - name: clone Emacs configuration
+      git:
+        repo: "https://github.com/riclima/.emacs.d.git"
+        dest: "/root/"
+
+    - name: install Emacs packages
+      shell: "emacs --script /root/.emacs.d/install-packages.el"
+      args:
+        creates: "/root/.ansible-done/install-emacs-packages"
+
+    - name: set default mono font to DejaVu Sans Mono Book 9
+      command: dbus-launch gsettings set org.gnome.desktop.interface monospace-font-name "DejaVu Sans Mono Book 9"
