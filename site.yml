@@ -90,7 +90,7 @@
         dest: "/root/"
 
     - name: install Emacs packages
-      shell: "emacs --script /root/.emacs.d/install-packages.el"
+      shell: "yes | emacs --script /root/.emacs.d/install-packages.el"
       args:
         creates: "/root/.ansible-done/install-emacs-packages"
 
